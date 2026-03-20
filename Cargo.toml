@@ -1,0 +1,9 @@
+[package]
+name = "rs-termeter"
+version = "0.1.0"
+edition = "2024"
+description = "ASCII graph renderer for terminal with statistics"
+
+[dependencies]
+clap = { version = "4.6.0", features = ["derive"] }
+crossterm = "0.29.0"
