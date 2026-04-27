@@ -69,6 +69,58 @@ pub fn read_values(path: &str) -> Result<Vec<Vec<f64>>> {
     Ok(columns)
 }
 
+/// Parse a file into (label, value) pairs for pie-chart input.
+/// Each non-empty / non-comment line should contain a label followed by a numeric value.
+/// The value is the LAST whitespace-separated token; everything before it (joined by spaces)
+/// becomes the label. This allows labels containing spaces like "Worker A 42".
+pub fn read_labeled_values(path: &str) -> Result<Vec<(String, f64)>> {
+    let reader: Box<dyn BufRead> = if path == "-" {
+        Box::new(stdin().lock())
+    } else {
+        let file = fs::File::open(path)?;
+        Box::new(BufReader::new(file))
+    };
+
+    let mut out: Vec<(String, f64)> = Vec::new();
+    for (line_num, line) in reader.lines().enumerate() {
+        let line = line?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("//") {
+            continue;
+        }
+        // Split on whitespace, comma, or semicolon.
+        let parts: Vec<&str> = trimmed
+            .split(|c: char| c == ',' || c == ';' || c.is_ascii_whitespace())
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if parts.len() < 2 {
+            eprintln!(
+                "warning: skipping line {} (expected 'label value'): {:?}",
+                line_num + 1,
+                truncate(trimmed, 40),
+            );
+            continue;
+        }
+        let value_str = parts[parts.len() - 1];
+        let value: f64 = match value_str.parse() {
+            Ok(v) => v,
+            Err(_) => {
+                eprintln!(
+                    "warning: skipping line {} (last token not a number): {:?}",
+                    line_num + 1,
+                    truncate(trimmed, 40),
+                );
+                continue;
+            }
+        };
+        let label = parts[..parts.len() - 1].join(" ");
+        out.push((label, value));
+    }
+    Ok(out)
+}
+
 pub fn truncate(s: &str, max: usize) -> String {
     if s.len() > max {
         format!("{}…", &s[..max])

@@ -1,12 +1,14 @@
 mod graph;
+mod pie;
 mod stats;
 mod utils;
 
 use clap::Parser;
 
 use crate::graph::{Graph, Series};
+use crate::pie::{Pie, PieSlice};
 use crate::stats::Stats;
-use crate::utils::read_values;
+use crate::utils::{read_labeled_values, read_values};
 
 #[derive(Parser)]
 #[command(name = "rs-termeter", about = "ASCII graph renderer with statistics")]
@@ -31,11 +33,21 @@ struct Cli {
     /// Dual Y-axis mode: y1 scale on the left, y2 scale on the right (requires exactly 2 series)
     #[arg(short, long)]
     dual: bool,
+
+    /// Pie chart mode. Input file format: one "label value" per line.
+    /// Each slice is rendered with a percentage of the total.
+    #[arg(short = 'P', long)]
+    pie: bool,
 }
 
 
 fn main() {
     let cli = Cli::parse();
+
+    if cli.pie {
+        run_pie(&cli);
+        return;
+    }
 
     let columns = match read_values(&cli.file) {
         Ok(v) => v,
@@ -119,5 +131,50 @@ fn main() {
             println!("  [{}] {}", name, parts.join("   "));
         }
     }
+    println!();
+}
+
+fn run_pie(cli: &Cli) {
+    let entries = match read_labeled_values(&cli.file) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    if entries.is_empty() {
+        eprintln!("error: no labeled data found (expected lines like 'label value')");
+        std::process::exit(1);
+    }
+
+    let total: f64 = entries.iter().map(|(_, v)| v.max(0.0)).sum();
+    if total <= 0.0 {
+        eprintln!("error: pie chart requires at least one positive value");
+        std::process::exit(1);
+    }
+
+    let title = if cli.title.is_empty() {
+        if cli.file == "-" {
+            "stdin".to_string()
+        } else {
+            cli.file.clone()
+        }
+    } else {
+        cli.title.clone()
+    };
+
+    let slices: Vec<PieSlice> = entries
+        .into_iter()
+        .map(|(name, value)| PieSlice { name, value })
+        .collect();
+
+    let pie = Pie::new(slices);
+    let rendered = pie.render();
+
+    println!("\n  {}", title);
+    println!();
+    print!("{}", rendered);
+    println!("\n  total: {:.4}", total);
     println!();
 }

@@ -15,3 +15,6 @@ example-multiline: build
 
 example-dual: build
     target/release/rs-termeter test/example_dual.txt -n "mo/s,rows/s" -p "5,95" --dual
+
+example-pie: build
+    target/release/rs-termeter test/example_pie.txt -n "Time per worker" --pie
