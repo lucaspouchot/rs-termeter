@@ -7,6 +7,9 @@ build-static:
     cargo build --release --target x86_64-unknown-linux-musl
     @echo "Static build completed. Binary at target/x86_64-unknown-linux-musl/release/rs-termeter"
 
+help: build
+    @target/release/rs-termeter --help
+
 example: build
     target/release/rs-termeter test/example.txt
 
